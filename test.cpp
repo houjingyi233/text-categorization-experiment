@@ -9,577 +9,548 @@
 #include<sstream>
 #include<iostream>  
 using namespace std;
-const int K=100;
-set<string> words;
-vector<string> files;
-map<int,string> dict;
-int maxlength;
-int nums=0,tot=0;
 string str;
-struct Document
+int maxlength;
+//max length of words in dict
+int feature_nums = 0, tot = 0;
+//nums of feature words 
+//nums of known articles
+const int K = 15;
+//set k in KNN
+vector<string> files;
+//store file names
+map<int, string> dict;
+//store dict
+map<string, int> words;
+//store words in to be classified
+struct Distance
 {
 	int dis;
 	int number;
-	bool operator<(const Document&a) const  
-    {  
-        return a.dis<dis;  
-    }  
-}document[10000];
-struct Mydict
-{
-	int weight;
-	string strs; 	
-	bool operator<(const Mydict&src) const
+	bool operator<(const Distance&a) const
 	{
-    	return src.strs<strs;
+		return a.dis<dis;
 	}
-}mydict[100000];
-set<Mydict> user[100000];
-ofstream fout("result.txt");
-set<string>::iterator its;
-set<Mydict>::iterator set_it;
-map<string,int>::iterator it1,it2;
-priority_queue< Document,vector<Document>,less<Document> > knn_queue;
-vector<int> results[38];
-int countresults[38];
-//Ğ¡¶¥¶Ñ 
-int fnumbers[38]=
+}distances[10000];
+//store distances between known articles and unknown articles
+string featureword[100000];
+//store feature words
+map<string, int> articles[100000];
+//store feature words and occurrences in each known articles
+priority_queue< Distance, vector<Distance>, less<Distance> > knn_queue;
+vector< pair<string, int> > words_result;
+vector< pair<string, int> > articles_result[100000];
+ofstream fout("D:\\result.txt");
+//dict files for each classification
+char *dictnames[38] =
 {
-56,6,7,6,2,3,
-5,1,1,3,5,6,5,
-3,1,3,2,4,2,3,
-6,4,4,5,2,3,3,
-3,3,6,3,4,2,9,
-2,13,10,7,
-/*
-2227,240,263,235,83,105,
-199,44,58,129,214,229,187,
-122,42,114,65,166,94,118,
-221,143,141,190,93,112,104,
-104,111,250,111,150,95,375,
-98,515,404,275,
-*/
+	"D:\\è¶³çƒ.txt","D:\\ç¯®çƒ.txt","D:\\æ’çƒ.txt","D:\\ç½‘çƒ.txt","D:\\æ‰‹çƒ.txt","D:\\å’çƒ.txt","D:\\æ›²æ£çƒ.txt",
+	"D:\\æ©„æ¦„çƒ.txt","D:\\æ°´çƒ.txt","D:\\æ£’çƒ.txt","D:\\é«˜å°”å¤«.txt","D:\\ä¹’ä¹“.txt","D:\\ç¾½æ¯›çƒ.txt","D:\\å°çƒ.txt",
+	"D:\\å£çƒ.txt","D:\\æ£‹ç‰Œ.txt","D:\\æ¸¸æ³³.txt","D:\\è·³æ°´.txt","D:\\èµ›è½¦.txt","D:\\è‡ªè¡Œè½¦.txt","D:\\ä½“æ“.txt",
+	"D:\\ç”°å¾„.txt","D:\\æ­¦æœ¯.txt","D:\\æ‹³å‡».txt","D:\\æ‘”è·¤.txt","D:\\æŸ”é“è·†æ‹³é“.txt","D:\\ä¸¾é‡.txt","D:\\å‡»å‰‘.txt",
+	"D:\\é©¬æœ¯.txt","D:\\å°„å‡»å°„ç®­.txt","D:\\èµ›è‰‡ä¸çš®åˆ’è‰‡.txt","D:\\å¸†èˆ¹å¸†æ¿.txt","D:\\é“äººä¸‰é¡¹å’Œç°ä»£äº”é¡¹.txt",
+	"D:\\å†°é›ªé¡¹ç›®.txt","D:\\ç™»å±±.txt","D:\\å¥¥è¿.txt","D:\\äºšè¿.txt","D:\\å…¨è¿.txt",
 };
-char *dictnames[38]=
+//training files' catalog
+char *training_filepaths[38] =
 {
-	"D:\\×ãÇò.txt","D:\\ÀºÇò.txt","D:\\ÅÅÇò.txt","D:\\ÍøÇò.txt","D:\\ÊÖÇò.txt","D:\\ÀİÇò.txt","D:\\Çú¹÷Çò.txt",
-	"D:\\éÏé­Çò.txt","D:\\Ë®Çò.txt","D:\\°ôÇò.txt","D:\\¸ß¶û·ò.txt","D:\\Æ¹ÅÒ.txt","D:\\ÓğÃ«Çò.txt","D:\\Ì¨Çò.txt",
-	"D:\\±ÚÇò.txt","D:\\ÆåÅÆ.txt","D:\\ÓÎÓ¾.txt","D:\\ÌøË®.txt","D:\\Èü³µ.txt","D:\\×ÔĞĞ³µ.txt","D:\\Ìå²Ù.txt",
-	"D:\\Ìï¾¶.txt","D:\\ÎäÊõ.txt","D:\\È­»÷.txt","D:\\Ë¤õÓ.txt","D:\\ÈáµÀõÌÈ­µÀ.txt","D:\\¾ÙÖØ.txt","D:\\»÷½£.txt",
-	"D:\\ÂíÊõ.txt","D:\\Éä»÷Éä¼ı.txt","D:\\ÈüÍ§ÓëÆ¤»®Í§.txt","D:\\·«´¬·«°å.txt","D:\\ÌúÈËÈıÏîºÍÏÖ´úÎåÏî.txt",
-	"D:\\±ùÑ©ÏîÄ¿.txt","D:\\µÇÉ½.txt","D:\\°ÂÔË.txt","D:\\ÑÇÔË.txt","D:\\È«ÔË.txt",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\01è¶³çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\02ç¯®çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\03æ’çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\04ç½‘çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\05æ‰‹çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\06å’çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\07æ›²æ£çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\08æ©„æ¦„çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\09æ°´çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\10æ£’çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\11é«˜å°”å¤«",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\12ä¹’ä¹“",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\13ç¾½æ¯›çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\14å°çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\15å£çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\16æ£‹ç‰Œ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\17æ¸¸æ³³",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\18è·³æ°´",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\19èµ›è½¦",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\20è‡ªè¡Œè½¦",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\21ä½“æ“",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\22ç”°å¾„",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\23æ­¦æœ¯",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\24æ‹³å‡»",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\25æ‘”è·¤",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\26æŸ”é“è·†æ‹³é“",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\27ä¸¾é‡",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\28å‡»å‰‘",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\29é©¬æœ¯",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\30å°„å‡»å°„ç®­",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\31èµ›è‰‡ä¸çš®åˆ’è‰‡",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\32å¸†èˆ¹å¸†æ¿",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\33é“äººä¸‰é¡¹å’Œç°ä»£äº”é¡¹",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\34å†°é›ªé¡¹ç›®",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\35ç™»å±±",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\36å¥¥è¿",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\37äºšè¿",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»è®­ç»ƒæ–‡æ¡£\\38å…¨è¿",
 };
-char *filepaths1[38]=
+//test files' catalog
+char *test_filepaths[38] =
 {
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\01×ãÇò",	
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\02ÀºÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\03ÅÅÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\04ÍøÇò",	
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\05ÊÖÇò",	
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\06ÀİÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\07Çú¹÷Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\08éÏé­Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\09Ë®Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\10°ôÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\11¸ß¶û·ò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\12Æ¹ÅÒ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\13ÓğÃ«Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\14Ì¨Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\15±ÚÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\16ÆåÅÆ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\17ÓÎÓ¾",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\18ÌøË®",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\19Èü³µ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\20×ÔĞĞ³µ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\21Ìå²Ù",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\22Ìï¾¶",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\23ÎäÊõ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\24È­»÷",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\25Ë¤õÓ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\26ÈáµÀõÌÈ­µÀ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\27¾ÙÖØ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\28»÷½£",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\29ÂíÊõ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\30Éä»÷Éä¼ı",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\31ÈüÍ§ÓëÆ¤»®Í§",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\32·«´¬·«°å",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\33ÌúÈËÈıÏîºÍÏÖ´úÎåÏî",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\34±ùÑ©ÏîÄ¿",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\35µÇÉ½",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\36°ÂÔË",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\37ÑÇÔË",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀàÑµÁ·ÎÄµµ\\38È«ÔË",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\01è¶³çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\02ç¯®çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\03æ’çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\04ç½‘çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\05æ‰‹çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\06å’çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\07æ›²æ£çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\08æ©„æ¦„çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\09æ°´çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\10æ£’çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\11é«˜å°”å¤«",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\12ä¹’ä¹“",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\13ç¾½æ¯›çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\14å°çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\15å£çƒ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\16æ£‹ç‰Œ",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\17æ¸¸æ³³",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\18è·³æ°´",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\19èµ›è½¦",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\20è‡ªè¡Œè½¦",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\21ä½“æ“",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\22ç”°å¾„",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\23æ­¦æœ¯",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\24æ‹³å‡»",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\25æ‘”è·¤",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\26æŸ”é“è·†æ‹³é“",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\27ä¸¾é‡",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\28å‡»å‰‘",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\29é©¬æœ¯",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\30å°„å‡»å°„ç®­",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\31èµ›è‰‡ä¸çš®åˆ’è‰‡",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\32å¸†èˆ¹å¸†æ¿",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\33é“äººä¸‰é¡¹å’Œç°ä»£äº”é¡¹",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\34å†°é›ªé¡¹ç›®",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\35ç™»å±±",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\36å¥¥è¿",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\37äºšè¿",
+	"C:\\Users\\Administrator\\Desktop\\å®éªŒ4\\ä½“è‚²é¢†åŸŸ\\ä½“è‚²åˆ†ç±»æµ‹è¯•æ–‡æ¡£\\38å…¨è¿",
 };
-char *filepaths2[38]=
+
+int cmp(const pair<string, int> &x, const pair<string, int> &y)
 {
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\01×ãÇò",	
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\02ÀºÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\03ÅÅÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\04ÍøÇò",	
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\05ÊÖÇò",	
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\06ÀİÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\07Çú¹÷Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\08éÏé­Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\09Ë®Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\10°ôÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\11¸ß¶û·ò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\12Æ¹ÅÒ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\13ÓğÃ«Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\14Ì¨Çò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\15±ÚÇò",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\16ÆåÅÆ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\17ÓÎÓ¾",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\18ÌøË®",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\19Èü³µ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\20×ÔĞĞ³µ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\21Ìå²Ù",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\22Ìï¾¶",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\23ÎäÊõ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\24È­»÷",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\25Ë¤õÓ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\26ÈáµÀõÌÈ­µÀ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\27¾ÙÖØ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\28»÷½£",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\29ÂíÊõ",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\30Éä»÷Éä¼ı",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\31ÈüÍ§ÓëÆ¤»®Í§",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\32·«´¬·«°å",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\33ÌúÈËÈıÏîºÍÏÖ´úÎåÏî",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\34±ùÑ©ÏîÄ¿",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\35µÇÉ½",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\36°ÂÔË",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\37ÑÇÔË",
-	"C:\\Users\\Administrator\\Desktop\\ÊµÑé4\\ÌåÓıÁìÓò\\ÌåÓı·ÖÀà²âÊÔÎÄµµ\\38È«ÔË",
-};
-	
-void getfiles(string path,string exd,vector<string>& files)
+	return x.second > y.second;
+}
+
+void sort_by_value(map<string, int> &t_map, vector< pair<string, int> > &t_vec)
 {
-	long hFile=0;
+	for (map<string, int>::iterator iter = t_map.begin(); iter != t_map.end(); iter++)
+	{
+		t_vec.push_back(make_pair(iter->first, iter->second));
+	}
+	sort(t_vec.begin(), t_vec.end(), cmp);
+}
+
+//store all files in path with exd extension in vector
+void getfiles(string path, string exd, vector<string>& files)
+{
+	long hFile = 0;
 	struct _finddata_t fileinfo;
 	string pathName, exdName;
-	if(0!=strcmp(exd.c_str(),""))
+	if (0 != strcmp(exd.c_str(), ""))
 	{
-		exdName="\\*."+exd;
+		exdName = "\\*." + exd;
 	}
 	else
 	{
-		exdName="\\*";
+		exdName = "\\*";
 	}
-	if((hFile=_findfirst(pathName.assign(path).append(exdName).c_str(),&fileinfo))!=-1)
+	if ((hFile = _findfirst(pathName.assign(path).append(exdName).c_str(), &fileinfo)) != -1)
 	{
 		do
 		{
-			if((fileinfo.attrib& _A_SUBDIR))
+			if ((fileinfo.attrib& _A_SUBDIR))
 			{
-				if(strcmp(fileinfo.name,".")!=0&&strcmp(fileinfo.name,"..")!=0)
-					getfiles( pathName.assign(path).append("\\").append(fileinfo.name),exd,files);
+				if (strcmp(fileinfo.name, ".") != 0 && strcmp(fileinfo.name, "..") != 0)
+					getfiles(pathName.assign(path).append("\\").append(fileinfo.name), exd, files);
 			}
 			else
 			{
-				if(strcmp(fileinfo.name,".")!=0&&strcmp(fileinfo.name,"..")!=0)
+				if (strcmp(fileinfo.name, ".") != 0 && strcmp(fileinfo.name, "..") != 0)
 					files.push_back(pathName.assign(path).append("\\").append(fileinfo.name));
 			}
-		}while(_findnext(hFile, &fileinfo)==0);
+		} while (_findnext(hFile, &fileinfo) == 0);
 		_findclose(hFile);
 	}
 }
 
-void read_text(char *filename)
+//read text in file and store chinese character in str
+void read_text(char *textname)
 {
-	ifstream ifile(filename);
+	ifstream infile(textname);
 	ostringstream buf;
 	buf.clear();
 	str.clear();
 	char ch;
-	while(buf&&ifile.get(ch)) buf.put(ch);
-    str=buf.str();
-	unsigned char c1,c2;
-	int i=0;
-	while(i<str.length())
+	while (buf&&infile.get(ch)) buf.put(ch);
+	str = buf.str();
+	unsigned char c1, c2;
+	int i = 0;
+	while (i<str.length())
 	{
-		if(i+1<str.length())
+		if (i + 1<str.length())
 		{
-			c1=(unsigned char)str[i];
-			c2=(unsigned char)str[i+1];
-			if(c1>=0xb0&&c1<=0xf7&&c2>=0xa1&&c2<=0xfe) i+=2;
-			else str.erase(i,1);
+			c1 = (unsigned char)str[i];
+			c2 = (unsigned char)str[i + 1];
+			if (c1 >= 0xb0 && c1 <= 0xf7 && c2 >= 0xa1 && c2 <= 0xfe) i += 2;
+			//in GB2312 a chinese character is represented as two bytes
+			//high bytes from 0xB0 to 0xF7,low bytes from 0xA1 to 0xFE
+			else str.erase(i, 1);
 		}
-		else str.erase(i,1);
-	}
-	ifile.close();
-}
-
-void read_feature(char *pname)
-{
-	int j;
-	ifstream infile(pname,ios::in);
-	string sstr,ssstr;
-	nums=0;
-	int temp;
-	int weight;
-	while(getline(infile,sstr))
-	{
-		temp=0;
-		weight=0;
-		int i=0;
-		while(sstr[i]!=' ') i++;
-		ssstr=sstr.substr(0,i);
-		while(sstr[i]==' ') i++;
-		while(i<sstr.length())
-		{	
-			weight=weight*10+sstr[i]-'0';
-			i++;
-		}
-		mydict[nums].strs=ssstr;
-		mydict[nums].weight=1;
-		nums++;
-		int sleng=ssstr.length();
-		if(sleng>maxlength) maxlength=ssstr.length();
-		for(j=ssstr.length()-1;j>=0;j--)
-		{
-			temp+=ssstr[j];
-			temp=temp*100;
-
-		}
-		dict[temp]=ssstr;
-		ssstr.clear();
+		else str.erase(i, 1);
 	}
 	infile.close();
 }
 
-void pre_knn(char *dictname,char *filepath)
+//read feature word in file,store in map and string
+void read_feature(char *featurename)
 {
-	nums=0;
-	int i,j,temp;
+	ifstream infile(featurename, ios::in);
+	feature_nums = 0;
+	while (getline(infile, str))
+	{
+		int temp = 0;
+		featureword[feature_nums]= str;
+		int len = str.length();
+		if (len>maxlength) maxlength = str.length();
+		for (int i = str.length() - 1; i >= 0; i--)
+		{
+			temp += str[i];
+			temp = temp * 100;
+		}
+		dict[temp] = str;
+		str.clear();
+		feature_nums++;
+	}
+	infile.close();
+}
+
+//record keywords in each training distances 
+void pre_knn(char *dictname, char *filepath)
+{
+	cout << "K" << endl;
 	dict.clear();
 	files.clear();
+	feature_nums = 0;
 	read_feature(dictname);
-	getfiles(filepath,"txt",files);
- 	int size=files.size();
-	for(int k=0;k<size;k++)
+	getfiles(filepath, "txt", files);
+	int size = files.size();
+	for (int k = 0; k<size; k++)
 	{
-		string strtemp=files[k];
-		int len=strtemp.size();
-		string c="\\";
-		for(int m=0;m<len;m++)
+		//deal with escape character '\'
+		string tempstr = files[k];
+		int len = tempstr.size();
+		string backslash = "\\";
+		for (int m = 0; m<len; m++)
 		{
-			if(strtemp[m]=='\\') 
+			if (tempstr[m] == '\\')
 			{
-				strtemp.insert(m,c);
-				m+=2;
-				len=strtemp.size();
+				tempstr.insert(m, backslash);
+				m += 2;
+				len = tempstr.size();
 			}
 		}
-		char *f1name=(char *)strtemp.c_str();
-		cout<<f1name<<endl;
-		read_text(f1name);
-		int pos=-1;
-		i=j=str.length()-1;
-		map<int,string>::iterator map_it; 
-		while(i>=0)
+		char *fname = (char *)tempstr.c_str();
+		cout << fname << endl;
+		read_text(fname);
+		int pos = -1;
+		//pos is for record matching position
+		int i = str.length() - 1;
+		map<int, string>::iterator map_it;
+		while (i >= 0)
 		{
-			int temp=0;
-			int j=i;
-			for(;j>=0;j--)
+			int j = i;
+			int temp = 0;
+			for (; j >= 0; j--)
 			{
-				temp+=str[j];
-				temp=temp*100;
-				map_it=dict.find(temp);
-				if(map_it!=dict.end()&&j!=0)
+				temp += str[j];
+				temp = temp * 100;
+				map_it = dict.find(temp);
+				if (map_it != dict.end() && j != 0)
 				{
-					if(j%2==0) pos=j;
+					if (j % 2 == 0) pos = j;
+					//record matching position
 				}
-				if(map_it!=dict.end()&&j==0)
+				if (map_it != dict.end() && j == 0)
 				{
-					for(int ii=0;ii<nums;ii++)
+					for (int k = 0; k<feature_nums; k++)
 					{
-						if(str.substr(0,i-j+1)==mydict[ii].strs)
+						if (str.substr(0, i - j + 1) == featureword[k])
 						{
-							user[tot].insert(mydict[ii]);
+							if (articles[tot].find(str.substr(0, i + 1)) == articles[tot].end())
+							{
+								articles[tot][str.substr(0, i + 1)] = 1;
+							}
+							else
+							{
+								articles[tot][str.substr(0, i + 1)]++;
+							}
 							break;
 						}
 					}
-					i=-1;
+					i = -1;
 					break;
 				}
-				if(map_it==dict.end()&&(i-j>=maxlength-1||j==0))
+				if (map_it == dict.end() && (i - j >= maxlength - 1 || j == 0))
 				{
-					if(pos==-1)
+					if (pos == -1)
 					{
-						i-=2;
+						i -= 2;
 						break;
-
 					}
+					//match failed,skip this character
 					else
 					{
-						for(int ii=0;ii<nums;ii++)
+						for (int k = 0; k<feature_nums; k++)
 						{
-							if(str.substr(pos,i-pos+1)==mydict[ii].strs)
+							if (str.substr(pos, i - pos + 1) == featureword[k])
 							{
-								user[tot].insert(mydict[ii]);
-								break;
+								if (articles[tot].find(str.substr(pos, i - pos + 1)) == articles[tot].end())
+								{
+									articles[tot][str.substr(pos, i - pos + 1)] = 1;
+								}
+								else
+								{
+									articles[tot][str.substr(pos, i - pos + 1)]++;
+								}
 							}
 						}
-						i=pos-1;
-						pos=-1;
+						i = pos - 1;
+						pos = -1;
 						break;
 					}
+					//use pos recorded last time
 				}
 			}
 		}
+		sort_by_value(articles[tot], articles_result[tot]);
 		tot++;
-	} 	
+	}
 }
 
-void read_dict(char *pname)
+//read terms in file ,compute hash value and store them in map
+void read_dict(char *dictname)
 {
-	int j;
-	dict.clear(); 
-	ifstream infile(pname, ios::in);
-	string sstr;
+	ifstream infile(dictname, ios::in);
+	dict.clear();
+	string dict_str;
 	int temp;
-	while(getline(infile,sstr))
+	while (getline(infile, dict_str))
 	{
-		temp=0;
-		int sleng=sstr.length();
-		if(sleng>maxlength) maxlength=sstr.length();
-		for(j=sstr.length()-1;j>=0;j--)
+		temp = 0;
+		int len = dict_str.length();
+		if (len>maxlength) maxlength = dict_str.length();
+		for (int i = dict_str.length() - 1; i >= 0; i--)
 		{
-			temp+=sstr[j];
-			temp=temp*100;
+			temp += dict_str[i];
+			temp = temp * 100;
 
 		}
-		dict[temp]=sstr;
-		sstr.clear();
+		dict[temp] = dict_str;
+		dict_str.clear();
 	}
 	infile.close();
 }
 
+//count distances between two articles based on cosine similarity
 void count_dis(int i)
 {
-	int temp=0;
-	for(its=words.begin();its!=words.end();its++)
+	int temp1, temp2, temp3;
+	temp1 = temp2 = temp3 = 0;
+	for (int j = 0; j < articles_result[i].size(); j++)
 	{
-		for(set_it=user[i].begin();set_it!=user[i].end();set_it++)
+		temp1 += articles_result[i][j].second*articles_result[i][j].second;
+	}
+	for(int k = 0; k < words_result.size(); k++)
+	{
+		temp2 += words_result[k].second*words_result[k].second;
+	}
+	for (int j = 0; j <articles_result[i].size(); j++)
+	{
+		for (int k = 0; k < words_result.size(); k++)
 		{
-			if((*its)==(*set_it).strs)
+			if (articles_result[i][j].first == words_result[k].first)
 			{
-				temp+=(*set_it).weight;
+				temp3 += articles_result[i][j].second*words_result[k].second;
+				break;
 			}
 		}
 	}
-	document[i].dis=temp;
-	document[i].number=i;
-	if(knn_queue.size()<K) knn_queue.push(document[i]);
-	else if(document[i].dis>knn_queue.top().dis) 
+	distances[i].dis = temp3*temp3 / temp1 / temp2;
+	distances[i].number = i;
+	if (knn_queue.size()<K) knn_queue.push(distances[i]);
+	else if (distances[i].dis>knn_queue.top().dis)
 	{
 		knn_queue.pop();
-		knn_queue.push(document[i]);
+		knn_queue.push(distances[i]);
 	}
 }
 
-void solve(int tempnum)
+//count the number of each class label in k nearest neighbor  
+//the class label with the largest frequency 
+//is selected as the class label of the unknown sample
+void select_category()
 {
-	int adjust=1;
-	int interval=1;
 	int categorys[38];
-	for(int i=0;i<38;i++) categorys[i]=0;
-	while(!knn_queue.empty())
+	for (int i = 0; i<38; i++) categorys[i] = 0;
+	while (!knn_queue.empty())
 	{
-		int t=knn_queue.top().number;
+		int t = knn_queue.top().number;
 		knn_queue.pop();
-		if(t<2227) categorys[0]+=adjust;
-		//×ãÇò 
-		if(t>=2227&&t<2467) categorys[1]+=adjust;
-		//ÀºÇò 
-		if(t>=2467&&t<2730) categorys[2]+=adjust;
-		//ÅÅÇò 
-		if(t>=2730&&t<2965) categorys[3]+=adjust;
-		//ÍøÇò 
-	//	if(t>=2965&&t<3048) categorys[4]+=adjust;
-	//	if(t>=3048&&t<3153) categorys[5]+=adjust;
-	//	if(t>=3153&&t<3352) categorys[6]+=adjust;
-	//	if(t>=3352&&t<3396) categorys[7]+=adjust;
-	//	if(t>=3396&&t<3454) categorys[8]+=adjust;
-		if(t>=2965&&t<3094) categorys[9]+=adjust;
-		//°ôÇò 
-		if(t>=3094&&t<3308) categorys[10]+=adjust;
-		//¸ß¶û·ò 
-		if(t>=3308&&t<3537) categorys[11]+=adjust;
-		//Æ¹ÅÒ 
-		if(t>=3537&&t<3724) categorys[12]+=adjust;
-		//ÓğÃ«Çò 
-		if(t>=3724&&t<3846) categorys[13]+=adjust;
-		//Ì¨Çò 
-	//	if(t>=3846&&t<4377) categorys[14]+=adjust;
-		if(t>=3846&&t<3960) categorys[15]+=adjust;
-		if(t>=3960&&t<4025) categorys[16]+=adjust;
-		if(t>=4025&&t<4191) categorys[17]+=adjust;
-		if(t>=4191&&t<4285) categorys[18]+=adjust;
-		if(t>=4285&&t<4403) categorys[19]+=adjust;
-		if(t>=4403&&t<4624) categorys[20]+=adjust;
-		if(t>=4624&&t<4767) categorys[21]+=adjust;
-		if(t>=4767&&t<4908) categorys[22]+=adjust;
-		if(t>=4908&&t<5098) categorys[23]+=adjust;
-	//	if(t>=5629&&t<5722) categorys[24]+=adjust;
-	//	if(t>=5722&&t<5834) categorys[25]+=adjust;
-	//	if(t>=5834&&t<5938) categorys[26]+=adjust;
-		if(t>=5098&&t<5202) categorys[27]+=adjust;
-	//	if(t>=6042&&t<6153) categorys[28]+=adjust;
-		if(t>=5202&&t<5452) categorys[29]+=adjust;
-	//	if(t>=6403&&t<6514) categorys[30]+=adjust;
-	//	if(t>=6514&&t<6664) categorys[31]+=adjust;
-		if(t>=5452&&t<5547) categorys[32]+=adjust;
-		if(t>=5547&&t<5922) categorys[33]+=adjust;
-	//	if(t>=7134&&t<7232) categorys[34]+=adjust;
-	//	if(t>=7232&&t<7747) categorys[35]+=adjust;
-	//	if(t>=7747&&t<8151) categorys[36]+=adjust;
-	//	if(t>=8151) categorys[37]+=adjust;
-		adjust+=interval;
-		interval++;	
-	} 
-	/*
-	categorys[37]=0;
-	categorys[36]=0;
-	categorys[35]=0;
-	categorys[34]=0;
-	categorys[31]=0;
-	categorys[30]=0;
-	categorys[28]=0;
-	categorys[26]=0;
-	categorys[25]=0;
-	categorys[24]=0;
-	categorys[14]=0;
-	categorys[8]=0;
-	categorys[7]=0;
-	categorys[6]=0;
-	categorys[5]=0;
-	categorys[4]=0;
-	*/
-	for(int i=0;i<38;i++)
-	{
-		categorys[i]=categorys[i]*10000/fnumbers[i];
+		if (t<2227) categorys[0] += 1;
+		if (t >= 2227 && t<2467) categorys[1] += 1;
+		if (t >= 2467 && t<2730) categorys[2] += 1;
+		if (t >= 2730 && t<2965) categorys[3] += 1;
+		if (t >= 2965 && t<3094) categorys[9] += 1;
+		if (t >= 3094 && t<3308) categorys[10] += 1;
+		if (t >= 3308 && t<3537) categorys[11] += 1;
+		if (t >= 3537 && t<3724) categorys[12] += 1;
+		if (t >= 3724 && t<3846) categorys[13] += 1;
+		if (t >= 3846 && t<3960) categorys[15] += 1;
+		if (t >= 3960 && t<4025) categorys[16] += 1;
+		if (t >= 4025 && t<4191) categorys[17] += 1;
+		if (t >= 4191 && t<4285) categorys[18] += 1;
+		if (t >= 4285 && t<4403) categorys[19] += 1;
+		if (t >= 4403 && t<4624) categorys[20] += 1;
+		if (t >= 4624 && t<4767) categorys[21] += 1;
+		if (t >= 4767 && t<4908) categorys[22] += 1;
+		if (t >= 4908 && t<5098) categorys[23] += 1;
+		if (t >= 5098 && t<5202) categorys[27] += 1;
+		if (t >= 5202 && t<5452) categorys[29] += 1;
+		if (t >= 5452 && t<5547) categorys[32] += 1;
+		if (t >= 5547 && t<5922) categorys[33] += 1;
 	}
-	int maxelement=0,maxpos;
-	for(int i=0;i<38;i++)
+	int maxelement = 0, pos;
+	for (int i = 0; i<38; i++)
 	{
-		if(categorys[i]>maxelement) 
+		if (categorys[i]>maxelement)
 		{
-			maxelement=categorys[i];
-			maxpos=i;
+			maxelement = categorys[i];
+			pos = i;
 		}
 	}
-	results[tempnum].push_back(maxpos);
-	countresults[maxpos]++;
+	cout << "this acticle is classified in:" << pos << endl;
 }
 
-void train(char *filepath,int tempnum)
+//segmentation acticles in directory
+void txt_segmentation(char *filepath)
 {
-	int i,j;
 	files.clear();
-	getfiles(filepath,"txt",files);
- 	int size=files.size();
-	for(int k=0;k<size;k++)
+	getfiles(filepath, "txt", files);
+	int size = files.size();
+	for (int k = 0; k<size; k++)
 	{
-		string strtemp=files[k];
-		int len=strtemp.size();
-		string c="\\";
-		for(int m=0;m<len;m++)
+		//deal with escape character '\'
+		string tempstr = files[k];
+		int len = tempstr.size();
+		string backslash = "\\";
+		for (int m = 0; m<len; m++)
 		{
-			if(strtemp[m]=='\\') 
+			if (tempstr[m] == '\\')
 			{
-				strtemp.insert(m,c);
-				m+=2;
-				len=strtemp.size();
+				tempstr.insert(m, backslash);
+				m += 2;
+				len = tempstr.size();
 			}
 		}
-		char *f1name=(char *)strtemp.c_str();
-		fout<<f1name<<endl;
-		cout<<"ÕıÔÚ´¦Àí£º"<<f1name<<endl; 
-		read_text(f1name);
-		int pos=-1;
-		i=j=str.length()-1;
-		map<int,string>::iterator map_it;
-		words.clear(); 
-		while(!knn_queue.empty()) knn_queue.pop();
-		while(i>=0)
+		char *fname = (char *)tempstr.c_str();
+		fout << fname << endl;
+		cout << "judging the category of this articleï¼š" << fname << endl;
+		read_text(fname);
+		int pos = -1;
+		int i = str.length() - 1;
+		map<int, string>::iterator map_it;
+		words.clear();
+		//store all terms 
+		while (!knn_queue.empty()) knn_queue.pop();
+		while (i >= 0)
 		{
-			int temp=0;
-			int j=i;
-			for(;j>=0;j--)
+			int j = i;
+			int temp = 0;
+			for (; j >= 0; j--)
 			{
-				temp+=str[j];
-				temp=temp*100;
-				map_it=dict.find(temp);
-				if(map_it!=dict.end()&&j!=0)
+				temp += str[j];
+				temp = temp * 100;
+				map_it = dict.find(temp);
+				if (map_it != dict.end() && j != 0)
 				{
-					if(j%2==0) pos=j;
+					if (j % 2 == 0) pos = j;
 				}
-				if(map_it!=dict.end()&&j==0)
+				if (map_it != dict.end() && j == 0)
 				{
-					words.insert(str.substr(0,i-j+1));
-					i=-1;
+					if (words.find(str.substr(0, i + 1)) == words.end())
+					{
+						words[str.substr(0, i + 1)] = 1;
+					}
+					else
+					{
+						words[str.substr(0, i + 1)]++;
+					}
+					i = -1;
 					break;
 				}
-				if(map_it==dict.end()&&(i-j>=maxlength-1||j==0))
+				if (map_it == dict.end() && (i - j >= maxlength - 1 || j == 0))
 				{
-					if(pos==-1)
+					if (pos == -1)
 					{
-						i-=2;
+						i -= 2;
 						break;
 					}
 					else
 					{
-						words.insert(str.substr(pos,i-pos+1));
-						i=pos-1;
-						pos=-1;
+						if (words.find(str.substr(pos, i - pos + 1)) == words.end())
+						{
+							words[str.substr(pos, i - pos + 1)] = 1;
+						}
+						else
+						{
+							words[str.substr(pos, i - pos + 1)]++;
+						}
+						i = pos - 1;
+						pos = -1;
 						break;
 					}
 				}
 			}
 		}
-		for(int ii=0;ii<tot;ii++) count_dis(ii);
-		solve(tempnum);
-	} 	
+		sort_by_value(words,words_result);
+		for (int k = 0; k<tot; k++) count_dis(k);
+		//count dis between all known article
+		void select_category();
+	}
 }
 
 int main()
 {
-	char *filepath,*dictname;
-	for(int i=0;i<38;i++)
+	char *filepath, *dictname;
+	for (int i = 0; i<38; i++)
 	{
-		if(i!=37&&i!=36&&i!=35&&i!=34&&i!=31&&i!=30&&i!=28&&i!=26&&i!=25&&i!=24&&i!=14&&i!=8&&i!=7&&i!=6&&i!=5&&i!=4)
+		if (i != 37 && i != 36 && i != 35 && i != 34 && i != 31 && i != 30 && i != 28 && i != 26 && i != 25 && i != 24 && i != 14 && i != 8 && i != 7 && i != 6 && i != 5 && i != 4)
 		{
-			dictname=dictnames[i];
-			filepath=filepaths1[i];
-			pre_knn(dictname,filepath);
+			dictname = dictnames[i];
+			filepath = training_filepaths[i];
+			pre_knn(dictname, filepath);
 		}
 	}
-	read_dict("´Êµä.txt");
-	for(int i=0;i<38;i++)
+	read_dict("D:\\è¯å…¸.txt");
+	for (int i = 0; i<38; i++)
 	{
-		if(i!=37&&i!=36&&i!=35&&i!=34&&i!=31&&i!=30&&i!=28&&i!=26&&i!=25&&i!=24&&i!=14&&i!=8&&i!=7&&i!=6&&i!=5&&i!=4)
+		if (i != 37 && i != 36 && i != 35 && i != 34 && i != 31 && i != 30 && i != 28 && i != 26 && i != 25 && i != 24 && i != 14 && i != 8 && i != 7 && i != 6 && i != 5 && i != 4)
 		{
-			filepath=filepaths2[i];
-			train(filepath,i);
-		}
-	}
-	for(int i=0;i<38;i++)
-	{
-		if(i!=37&&i!=36&&i!=35&&i!=34&&i!=31&&i!=30&&i!=28&&i!=26&&i!=25&&i!=24&&i!=14&&i!=8&&i!=7&&i!=6&&i!=5&&i!=4)
-		{
-			cout<<i<<endl;
-			fout<<i<<endl;
-			int temps=0;
-			for(int j=0;j<results[i].size();j++)
-			{
-				if(results[i][j]==i) temps++;
-			}
-			double tt=temps/countresults[i];
-			cout<<temps<<" "<<countresults[i]<<" "<<tt<<endl;
-			fout<<temps<<" "<<countresults[i]<<" "<<tt<<endl;
+			filepath = test_filepaths[i];
+			txt_segmentation(filepath);
 		}
 	}
 	fout.close();
+	system("pause");
 	return 0;
 }
