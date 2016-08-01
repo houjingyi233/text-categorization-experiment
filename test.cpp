@@ -26,7 +26,7 @@ map<string, int> words;
 struct Distance
 {
 	int dis;
-	int number;
+	int attribute;
 	bool operator<(const Distance&a) const
 	{
 		return a.dis<dis;
@@ -39,12 +39,16 @@ map<string, int> articles[100000];
 //store feature words and occurrences in each known articles
 priority_queue< Distance, vector<Distance>, less<Distance> > knn_queue;
 vector< pair<string, int> > words_result;
-vector< pair<string, int> > articles_result[100000];
+struct Articles_result
+{
+	vector< pair<string, int> > article_words;
+	int attribute;
+}articles_result[100000];
 ofstream fout("D:\\result.txt");
 //dict files for each classification
-char *dictnames[38] =
+char *dictnames[39] =
 {
-	"D:\\足球.txt","D:\\篮球.txt","D:\\排球.txt","D:\\网球.txt","D:\\手球.txt","D:\\垒球.txt","D:\\曲棍球.txt",
+	"none","D:\\足球.txt","D:\\篮球.txt","D:\\排球.txt","D:\\网球.txt","D:\\手球.txt","D:\\垒球.txt","D:\\曲棍球.txt",
 	"D:\\橄榄球.txt","D:\\水球.txt","D:\\棒球.txt","D:\\高尔夫.txt","D:\\乒乓.txt","D:\\羽毛球.txt","D:\\台球.txt",
 	"D:\\壁球.txt","D:\\棋牌.txt","D:\\游泳.txt","D:\\跳水.txt","D:\\赛车.txt","D:\\自行车.txt","D:\\体操.txt",
 	"D:\\田径.txt","D:\\武术.txt","D:\\拳击.txt","D:\\摔跤.txt","D:\\柔道跆拳道.txt","D:\\举重.txt","D:\\击剑.txt",
@@ -52,8 +56,9 @@ char *dictnames[38] =
 	"D:\\冰雪项目.txt","D:\\登山.txt","D:\\奥运.txt","D:\\亚运.txt","D:\\全运.txt",
 };
 //training files' catalog
-char *training_filepaths[38] =
+char *training_filepaths[39] =
 {
+	"none",
 	"C:\\Users\\Administrator\\Desktop\\实验4\\体育领域\\体育分类训练文档\\01足球",
 	"C:\\Users\\Administrator\\Desktop\\实验4\\体育领域\\体育分类训练文档\\02篮球",
 	"C:\\Users\\Administrator\\Desktop\\实验4\\体育领域\\体育分类训练文档\\03排球",
@@ -94,8 +99,9 @@ char *training_filepaths[38] =
 	"C:\\Users\\Administrator\\Desktop\\实验4\\体育领域\\体育分类训练文档\\38全运",
 };
 //test files' catalog
-char *test_filepaths[38] =
+char *test_filepaths[39] =
 {
+	"none",
 	"C:\\Users\\Administrator\\Desktop\\实验4\\体育领域\\体育分类测试文档\\01足球",
 	"C:\\Users\\Administrator\\Desktop\\实验4\\体育领域\\体育分类测试文档\\02篮球",
 	"C:\\Users\\Administrator\\Desktop\\实验4\\体育领域\\体育分类测试文档\\03排球",
@@ -235,9 +241,8 @@ void read_feature(char *featurename)
 }
 
 //record keywords in each training distances 
-void pre_knn(char *dictname, char *filepath)
+void pre_knn(char *dictname, char *filepath,int attribute)
 {
-	cout << "K" << endl;
 	dict.clear();
 	files.clear();
 	feature_nums = 0;
@@ -332,7 +337,8 @@ void pre_knn(char *dictname, char *filepath)
 				}
 			}
 		}
-		sort_by_value(articles[tot], articles_result[tot]);
+		sort_by_value(articles[tot], articles_result[tot].article_words);
+		articles_result[tot].attribute = attribute;
 		tot++;
 	}
 }
@@ -366,27 +372,34 @@ void count_dis(int i)
 {
 	int temp1, temp2, temp3;
 	temp1 = temp2 = temp3 = 0;
-	for (int j = 0; j < articles_result[i].size(); j++)
+	for (int j = 0; j < articles_result[i].article_words.size(); j++)
 	{
-		temp1 += articles_result[i][j].second*articles_result[i][j].second;
+		temp1 += articles_result[i].article_words[j].second*articles_result[i].article_words[j].second;
 	}
 	for(int k = 0; k < words_result.size(); k++)
 	{
 		temp2 += words_result[k].second*words_result[k].second;
 	}
-	for (int j = 0; j <articles_result[i].size(); j++)
+	for (int j = 0; j <articles_result[i].article_words.size(); j++)
 	{
 		for (int k = 0; k < words_result.size(); k++)
 		{
-			if (articles_result[i][j].first == words_result[k].first)
+			if (articles_result[i].article_words[j].first == words_result[k].first)
 			{
-				temp3 += articles_result[i][j].second*words_result[k].second;
+				temp3 += articles_result[i].article_words[j].second*words_result[k].second;
 				break;
 			}
 		}
 	}
-	distances[i].dis = temp3*temp3 / temp1 / temp2;
-	distances[i].number = i;
+	if (temp1 != 0 && temp2 != 0)
+	{
+		distances[i].dis = 100000*temp3*temp3 / temp1 / temp2;
+	}
+	else
+	{
+		distances[i].dis = 0;
+	}
+	distances[i].attribute = articles_result[i].attribute;
 	if (knn_queue.size()<K) knn_queue.push(distances[i]);
 	else if (distances[i].dis>knn_queue.top().dis)
 	{
@@ -400,37 +413,17 @@ void count_dis(int i)
 //is selected as the class label of the unknown sample
 void select_category()
 {
-	int categorys[38];
-	for (int i = 0; i<38; i++) categorys[i] = 0;
+	int categorys[39];
+	for (int i = 1; i<39; i++) categorys[i] = 0;
 	while (!knn_queue.empty())
 	{
-		int t = knn_queue.top().number;
+		int t = knn_queue.top().attribute;
+		cout << t << endl;
 		knn_queue.pop();
-		if (t<2227) categorys[0] += 1;
-		if (t >= 2227 && t<2467) categorys[1] += 1;
-		if (t >= 2467 && t<2730) categorys[2] += 1;
-		if (t >= 2730 && t<2965) categorys[3] += 1;
-		if (t >= 2965 && t<3094) categorys[9] += 1;
-		if (t >= 3094 && t<3308) categorys[10] += 1;
-		if (t >= 3308 && t<3537) categorys[11] += 1;
-		if (t >= 3537 && t<3724) categorys[12] += 1;
-		if (t >= 3724 && t<3846) categorys[13] += 1;
-		if (t >= 3846 && t<3960) categorys[15] += 1;
-		if (t >= 3960 && t<4025) categorys[16] += 1;
-		if (t >= 4025 && t<4191) categorys[17] += 1;
-		if (t >= 4191 && t<4285) categorys[18] += 1;
-		if (t >= 4285 && t<4403) categorys[19] += 1;
-		if (t >= 4403 && t<4624) categorys[20] += 1;
-		if (t >= 4624 && t<4767) categorys[21] += 1;
-		if (t >= 4767 && t<4908) categorys[22] += 1;
-		if (t >= 4908 && t<5098) categorys[23] += 1;
-		if (t >= 5098 && t<5202) categorys[27] += 1;
-		if (t >= 5202 && t<5452) categorys[29] += 1;
-		if (t >= 5452 && t<5547) categorys[32] += 1;
-		if (t >= 5547 && t<5922) categorys[33] += 1;
+		categorys[t] += 1;
 	}
 	int maxelement = 0, pos;
-	for (int i = 0; i<38; i++)
+	for (int i = 1; i<39; i++)
 	{
 		if (categorys[i]>maxelement)
 		{
@@ -525,30 +518,24 @@ void txt_segmentation(char *filepath)
 		sort_by_value(words,words_result);
 		for (int k = 0; k<tot; k++) count_dis(k);
 		//count dis between all known article
-		void select_category();
+		select_category();
 	}
 }
 
 int main()
 {
 	char *filepath, *dictname;
-	for (int i = 0; i<38; i++)
+	for (int i = 1; i<39; i++)
 	{
-		if (i != 37 && i != 36 && i != 35 && i != 34 && i != 31 && i != 30 && i != 28 && i != 26 && i != 25 && i != 24 && i != 14 && i != 8 && i != 7 && i != 6 && i != 5 && i != 4)
-		{
-			dictname = dictnames[i];
-			filepath = training_filepaths[i];
-			pre_knn(dictname, filepath);
-		}
+		dictname = dictnames[i];
+		filepath = training_filepaths[i];
+		pre_knn(dictname, filepath,i);
 	}
 	read_dict("D:\\词典.txt");
-	for (int i = 0; i<38; i++)
+	for (int i = 1; i<39; i++)
 	{
-		if (i != 37 && i != 36 && i != 35 && i != 34 && i != 31 && i != 30 && i != 28 && i != 26 && i != 25 && i != 24 && i != 14 && i != 8 && i != 7 && i != 6 && i != 5 && i != 4)
-		{
-			filepath = test_filepaths[i];
-			txt_segmentation(filepath);
-		}
+		filepath = test_filepaths[i];
+		txt_segmentation(filepath);
 	}
 	fout.close();
 	system("pause");
