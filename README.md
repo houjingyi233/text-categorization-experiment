@@ -1,4 +1,3 @@
-# monkey-brother
 This is a homework for sophomores major in information security in BUPT,here are requirements: 
 1.Use sports classification training documents as the training set,sports classification test documents as the test set;
 2.Choose a feature selection algorithm,such as DF,IG,MI,CHI,the training set for feature selection;
