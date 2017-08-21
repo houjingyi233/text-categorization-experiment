@@ -1,4 +1,4 @@
-This is a homework for sophomores major in information security in BUPT,here are requirements: 
+This is a homework for sophomores major in information security in BUPT,here are requirements.
 
 1.Use sports classification training documents as the training set,sports classification test documents as the test set;
 
